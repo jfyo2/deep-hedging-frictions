@@ -1,0 +1,68 @@
+Simulate an asset under GBM (and then a more realistic model — Heston, or GBM with jumps) and price a European option via Monte Carlo, validated against closed-form Black-Scholes.
+Implement the classical delta-hedging strategy, and show its P&L distribution with transaction costs — you'll see the variance blow up as costs increase, and the naive hedge stop being "optimal" in any expected-utility sense.
+Train a neural network (small — an LSTM or even an MLP over engineered features, in PyTorch) to output a hedging strategy that minimizes a risk-adjusted objective (e.g. CVaR of hedging P&L) under transaction costs, using the same simulated paths.
+Compare: classical delta vs. learned hedge, across cost regimes. Show where ML actually earns its keep and where it doesn't (e.g. under zero costs it should recover ~BS delta — if it doesn't, that's a bug, and saying so is a good sign of rigor).
+
+
+
+
+
+Suggested Execution BlueprintPhase 1: Simulation Engine & Classical Baseline
+Generate vectorised Monte Carlo paths (GBM & Heston).Implement discrete-time Black-Scholes delta hedging.Calculate P&L distributions with proportional transaction costs $c \cdot \vert{} \Delta \delta_t \vert{} S_t$.
+Phase 2: Deep Hedging Architecture (PyTorch)Implement a policy network $\delta_t = f_\theta(S_t, t, \delta_{t-1})$. Compute terminal P&L across batch paths:$$\text{P\&L}_T = -C_0 + \sum_{t=0}^{T-1} \delta_t (S_{t+1} - S_t) - \sum_{t=0}^{T-1} c S_t \vert{}\delta_t - \delta_{t-1}\vert{} + \max(S_T - K, 0)$$Minimize loss: $\mathcal{L}(\theta) = \text{CVaR}_\alpha(-\text{P\&L}_T)$.
+Phase 3: Diagnostic Validation & ConvergenceVerification Test 1: Set $c = 0$. Confirm $\delta_\theta(S, t) \to \delta_{BS}(S, t)$ visually via policy plots.Verification Test 2: Increase $c$. Observe the network learning "no-trade zones" (hysteresis bands) around the Black-Scholes delta.Phase 4: Profiling & Visual DeliverablesPlot hedging cost vs. risk trade-off curves (Efficient Frontiers) comparing Black-Scholes, Whalley-Wilmott asymptotic approximations, and the Deep Hedging agent across cost regimes.
+
+
+
+
+deep-hedging-quant/
+│
+├── src/                          # Core Python Library (Plain .py Files)
+│   ├── simulation/
+│   │   ├── gbm.py                # Vectorized Monte Carlo engines
+│   │   └── heston.py             # Volatility path generators
+│   ├── models/
+│   │   ├── black_scholes.py      # Closed-form baselines
+│   │   └── deep_hedging.py       # PyTorch policy networks & CVaR loss
+│   └── engine/
+│       └── backtest.py           # Hedging execution & friction accounting
+│
+├── notebooks/                    # Interactive Showcase & Experiments
+│   ├── 01_simulation_validation.ipynb
+│   ├── 02_zero_cost_bs_convergence.ipynb   # Sanity check validation
+│   └── 03_deep_hedging_vs_friction.ipynb   # Final comparative study & plots
+│
+├── tests/                        # Unit Testing
+│   ├── test_bs_pricing.py        # Validates MC vs exact BS values
+│   └── test_cvar_loss.py
+│
+├── requirements.txt
+└── README.md                     # Project summary, key charts, instructions
+
+
+
+
+
+Act as a Quantitative Developer and Financial Engineer. 
+
+Help me design and implement a Python project named "Deep Hedging of Derivatives Under Market Frictions". The goal is to train a neural network in PyTorch to output optimal option hedging strategies under transaction costs using modern deep hedging techniques, validated against theoretical baselines.
+
+Project Specifications:
+
+1. Simulation Engine:
+- Implement vectorised Monte Carlo simulation for European call options under Geometric Brownian Motion (GBM) and Heston Stochastic Volatility.
+
+2. Baselines & Frictions:
+- Compute closed-form Black-Scholes option pricing and standard discrete delta hedging.
+- Account for portfolio P&L under proportional transaction costs: c * |Δδ_t| * S_t.
+
+3. Deep Hedging Architecture (PyTorch):
+- Design a policy network δ_t = f_θ(S_t, t, δ_{t-1}) that outputs hedge ratios at each rebalancing step.
+- Optimize the network against a Conditional Value-at-Risk (CVaR) loss function over terminal portfolio P&L across simulated paths.
+
+4. Empirical Validation & Diagnostics:
+- Zero-cost test: Prove that under zero transaction costs (c = 0), the learned neural hedge recovers the theoretical Black-Scholes delta.
+- Cost-friction test: Demonstrate the emergence of "no-trade zones" (hysteresis bands) as transaction costs increase.
+- Compare P&L distributions and risk-return profiles between Black-Scholes delta and learned deep hedging policies across cost regimes.
+
+Provide a clean, modular repository architecture (.py engine modules + Jupyter notebook scripts for analysis) and step-by-step code implementation.
