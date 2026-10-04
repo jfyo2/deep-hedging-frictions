@@ -1,3 +1,10 @@
+"""
+(c) jfyo2 2026. This project is licensed under the MIT License. 
+
+This file defines functions associated with geometric Brownian motion path simulation for asset prices. 
+"""
+
+
 import numpy as np 
 
 # All random processes in this notebook must be fed with a random number 
@@ -46,3 +53,12 @@ def geometricBrownianMotion(RNG, S_0, mu, sigma, MAX_TIME=1, SAMPLES=100):
     GBM = S_0 * np.exp((mu - sigma**2 / 2) * t + sigma * B)
 
     return (t, GBM)
+
+
+def gbm_paths_vec(rng, n, S_0, mu, sigma, T, steps):
+    dt = T / steps
+    Z = rng.standard_normal((n, steps))
+    log_increments = (mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * Z
+    log_S = np.log(S_0) + np.concatenate(
+        [np.zeros((n, 1)), np.cumsum(log_increments, axis=1)], axis=1)
+    return np.exp(log_S)

@@ -1,3 +1,11 @@
+"""
+(c) jfyo2 2026. This project is licensed under the MIT License. 
+
+This file defines functions associated with Heston path simulation. 
+See: https://en.wikipedia.org/wiki/Heston_model
+"""
+
+
 import numpy as np 
 
 
@@ -59,3 +67,38 @@ def hestonSim(RNG, S_0, nu_0, mu, kappa, theta, xi, rho, MAX_TIME=1, SAMPLES=100
         S[i] = S[i-1] + mu * S[i-1] * dt + np.sqrt(nu_abs) * S[i-1] * (W_S[i] - W_S[i-1])
 
     return (t, S, nu)
+
+
+def hestonSim_vec(rng, n, S_0, v_0, r, kappa, theta, xi, rho, T, steps):
+    dt = T / steps
+    Z = rng.standard_normal((steps, 2, n))
+    Zv = Z[:, 0]
+    Zs = rho * Z[:, 0] + np.sqrt(1 - rho**2) * Z[:, 1]
+    S = np.empty((n, steps + 1)); S[:, 0] = S_0
+    logS = np.full(n, np.log(S_0)); v = np.full(n, v_0)
+    for k in range(steps):
+        vp = np.maximum(v, 0.0); sq = np.sqrt(vp * dt)
+        logS += (r - 0.5 * vp) * dt + sq * Zs[k]
+        v = v + kappa * (theta - vp) * dt + xi * sq * Zv[k]
+        S[:, k + 1] = np.exp(logS)
+    return S
+
+"""
+def hestonSim_vec(rng, no_paths, S_0, nu_0, r, kappa, theta, xi, rho, MAX_TIME=1, SAMPLES=100):
+    dt = MAX_TIME / SAMPLES
+    Z = rng.standard_normal((SAMPLES, 2, no_paths))
+    Zv = Z[:, 0]
+    Zs = rho * Z[:, 0] + np.sqrt(1 - rho**2) * Z[:, 1]
+    S = np.empty((no_paths, SAMPLES + 1)) 
+    S[:, 0] = S_0
+    logS = np.full(no_paths, np.log(S_0)) 
+    nu_0s = np.full(no_paths, nu_0)
+    
+    for k in range(SAMPLES):
+        nu_abs = np.maximum(nu_0s, 0.0); sq = np.sqrt(vp * dt)
+        logS += (r - 0.5 * nu_abs) * dt + sq * Zs[k]
+        nu = nu + kappa * (theta - nu_abs) * dt + xi * sq * Zv[k]
+        S[:, k + 1] = np.exp(logS)
+        
+    return S
+"""
