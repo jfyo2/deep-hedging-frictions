@@ -12,7 +12,7 @@ S_0 = 75 # Initial asset price
 R = 0.05 # Annual risk-free rate 
 SIGMA = 0.25 # Annual volatility -- on the high end, because typically more delta movement makes things more interesting 
 T = 1.0 # Time to maturity 
-STEPS = 101 # Number of time steps 
+STEPS = 100 # Number of time steps 
 
 K = 75 # Typically we take the strike price to equal S_0 in hedging studies 
 

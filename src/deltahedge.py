@@ -38,10 +38,15 @@ def delta_hedge_batch(asset_price_process_array, K, r, sigma, no_of_calls, MAX_T
 
     hedge_process_array = np.zeros((no_paths, path_length)) # initialize hedging process; this is the number of stocks bought 
 
+    # resample the price array to match the hedging interval 
+    hedge_stride = int(round(hedging_interval / (MAX_TIME / path_length)))
+    price_array_resampled = asset_price_process_array[:,::hedge_stride]
+    
+
     for idx, t in enumerate(hedge_times):
         # Compute Black-Scholes implied delta at time
         # Vectorized over array because numpy does vectorized maths fast  
-        S_t = asset_price_process_array[:,idx]
+        S_t = price_array_resampled[:,idx]
         delta = bsm_delta(S_t, K, r, sigma, MAX_TIME - t)
         hedge_process_array[:,idx] = delta * no_of_calls
         
@@ -51,7 +56,7 @@ def delta_hedge_batch(asset_price_process_array, K, r, sigma, no_of_calls, MAX_T
 
 def delta_hedge_pnl(asset_price_process_array, S_0, C_0, K, r, sigma, no_of_calls, cost_rate, MAX_TIME, hedging_interval):
     # resample the simulation grid onto the hedge grid before anything indexes into it
-    n_sim_steps = asset_price_process_array.shape[1]
+    n_sim_steps = asset_price_process_array.shape[1] - 1
     sim_dt = MAX_TIME / n_sim_steps
     
     steps_per_hedge = int(round(hedging_interval / sim_dt))
@@ -64,6 +69,7 @@ def delta_hedge_pnl(asset_price_process_array, S_0, C_0, K, r, sigma, no_of_call
     (hedge_times, hedge_process_array) = delta_hedge_batch(price_array_resampled, K, r, sigma, no_of_calls, MAX_TIME, hedging_interval)
     
     N_PATHS, N_STEPS = hedge_process_array.shape
+    assert price_array_resampled.shape[1] == N_STEPS + 1, "need hedge dates 0..T-dt plus the terminal price"
 
     # Initialize B_0 = C_0 n - N_0 S_0 - c |N_0| S_0
     N_0 = hedge_process_array[:, 0]

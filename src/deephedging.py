@@ -46,7 +46,7 @@ class LSTMmodel(nn.Module):
              for i in range(num_layers)]
         )
 
-        path_update_interval = T / STEPS # precision / how frequently the underlying asset price 
+        path_update_interval = T / STEPS # Number of simulation Intervals 
         # path is updated
         self.steps_per_hedge = int(round(self.dt / path_update_interval)) # how many simulation 
         # grid-points one hedge interval spans
@@ -95,7 +95,7 @@ class LSTMmodel(nn.Module):
         N_PATHS, N_POINTS = list(paths_array.shape)
 
         
-        hidden = self.init_hidden_layer(N_PATHS)
+        hidden = self.init_hidden_layer(N_PATHS) # initialize hidden layer 
         delta_ts = torch.zeros(N_PATHS) # we predict delta_t for EVERY path 
 
         process = [] # initialize list for storing process data 
@@ -164,43 +164,17 @@ class LSTMmodel(nn.Module):
 
         
         for epoch in range(1, epochs + 1):
-
-            """
-            # old code 
-            child_seeds = ss.spawn(batch_size)
-            generators = [np.random.default_rng(s) for s in child_seeds]
-
-            paths_array = []
-
-            
-            # generate paths for training 
-            for rng in generators:
-                for time in maturity_times:
-                    (_, S, _) = heston.hestonSim(rng, S_0, NU_0, R, KAPPA, THETA, XI, RHO, time, STEPS)
-                    paths_array.append(S)
-
-
-            # resample paths to match hedge precision 
-            paths_resampled = torch.from_numpy(paths_array[:,::self.steps_per_hedge]).float()
-            
-            
-            maturity_times_array = torch.from_numpy(np.tile(train_times, batch_size))
-
-            hedge_process, path_mask = self.simulate_process(paths_resampled, CALLS_SOLD, 
-                                                             maturity_times_array) # simulate path using model
-
-            self.pnl_dist = delta_hedge_pnl_torch(paths_resampled, hedge_process, path_mask, C_0_grid, K, 
-                                                  R, CALLS_SOLD, self.cost_rate, self.dt)
-            """
             
             intervals_to_maturity_array = np.tile(np.arange(1, max_hedge_intervals + 1), paths_per_maturity)  
             epoch_rng = np.random.default_rng(ss.spawn(1)[0])
             
             paths_array = path_generator(epoch_rng, len(intervals_to_maturity_array))  
+            assert paths_array.shape[1] == STEPS + 1
 
             # we resample the paths array to match the precision of the hedge i.e. how often 
             # we're going to update the hedge 
             paths_array_resampled = torch.from_numpy(paths_array[:, ::self.steps_per_hedge]).float() 
+            assert paths_array_resampled.shape[1] == max_hedge_intervals + 1
             
             intervals_to_maturity_array_torch = torch.from_numpy(intervals_to_maturity_array)
 
