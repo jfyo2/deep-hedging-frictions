@@ -128,13 +128,13 @@ class LSTMmodel(nn.Module):
 
 
 
-    def trainModel(self, epochs, learn_rate, paths_per_maturity=30, path_generator=None):
+    def trainModel(self, epochs, learn_rate, paths_per_maturity=30, path_generator=None, print_epochs=20):
         # path_generator = None defaults to vectorized Heston 
         # the batch size is paths_per_maturity * T / self.dt, where T is the maximum time a path can be simulated to
         #N_PATHS, N_POINTS = list(paths_array.shape)
 
         if path_generator is None:   # default to Heston paths 
-            path_generator = lambda rng, n: heston.hestonSim_vec(
+            path_generator = lambda rng, n: heston.hestonSim(
                 rng, n, S_0, NU_0, R, KAPPA, THETA, XI, RHO, T, STEPS)
             
         
@@ -168,7 +168,7 @@ class LSTMmodel(nn.Module):
             intervals_to_maturity_array = np.tile(np.arange(1, max_hedge_intervals + 1), paths_per_maturity)  
             epoch_rng = np.random.default_rng(ss.spawn(1)[0])
             
-            paths_array = path_generator(epoch_rng, len(intervals_to_maturity_array))  
+            paths_array = path_generator(epoch_rng, len(intervals_to_maturity_array))[1]  
             assert paths_array.shape[1] == STEPS + 1
 
             # we resample the paths array to match the precision of the hedge i.e. how often 
@@ -186,7 +186,7 @@ class LSTMmodel(nn.Module):
             # simulate the process 
             hedge_process, path_expiry_mask = self.simulate_process(paths_array_resampled, CALLS_SOLD, 
                                                         intervals_to_maturity_array_torch)
-            self.pnl_dist = deltahedge.delta_hedge_pnl_torch(paths_array_resampled, hedge_process, path_expiry_mask, 
+            self.pnl_dist = deltahedge.hedge_pnl_torch(paths_array_resampled, hedge_process, path_expiry_mask, 
                                                   C_0_array, K, R, CALLS_SOLD, self.cost_rate, self.dt)
             
             # we define pnl_dist with self. so we can access it from outside; this will be useful later 
@@ -201,17 +201,8 @@ class LSTMmodel(nn.Module):
 
             training_data.append({'Epoch': epoch, 'CVaR loss' : loss.item(), 'Mean P&L' : self.pnl_dist.mean().item()})
 
-
-            """
-            # once we've done one forward pass we have a full pnl distribution as reference -- 
-            # we can set the parameter x in the loss function to be initialized to the corresponding alpha quantile 
-            # for subsequent epochs; this is better than 0 as an initial value 
-            if epoch == 1:
-                with torch.no_grad():
-                    lossfn.x.fill_(torch.quantile(-self.pnl_dist, self.alpha_lvl).item())
-            """
             
-            if epoch % 20 == 0:
+            if epoch % print_epochs == 0:
                 print(f"epoch {epoch:4d}  CVaR loss: {loss.item():.4f}  "
                     f"mean P&L: {self.pnl_dist.mean().item():.4f}")
                     #f"x (VaR est.): {lossfn.x.item():.4f}")
@@ -220,3 +211,28 @@ class LSTMmodel(nn.Module):
 
         # convert data to pandas dataframe 
         self.train_data = pd.DataFrame(training_data) 
+
+
+
+    
+    # Helper function to automatically convert numpy paths to PyTorch and resample 
+    # before running simulate_process 
+    def deep_hedge_on(self, paths_array, trace=False):
+        # resample array 
+        paths_array_resampled = torch.from_numpy(paths_array[:, ::self.steps_per_hedge]).float()  
+    
+        # guard to check shape fits
+        max_hedge_intervals = int(round(T / self.dt))
+        assert paths_array_resampled.shape[1] == max_hedge_intervals + 1
+    
+        # create empty mask matching the size of the path array 
+        steps_to_maturity = torch.full((paths_array_resampled.shape[0],), max_hedge_intervals, dtype=torch.long)
+        
+        with torch.no_grad():
+            hedge, mask = self.simulate_process(paths_array_resampled, CALLS_SOLD, steps_to_maturity)
+    
+    
+        if trace:
+            return hedge[:, :max_hedge_intervals], paths_array_resampled, mask 
+        else: 
+            return hedge[:, :max_hedge_intervals]     

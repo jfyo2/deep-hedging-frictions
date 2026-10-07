@@ -7,7 +7,6 @@ This config file defines the values of important global variables.
 # we will use capital letters for constant instances of the parameters 
 # and lowercase for these parameters where they appear in functions
 
-NO_PATHS = 3000 # Number of probabilistic asset paths to simulate
 S_0 = 75 # Initial asset price 
 R = 0.05 # Annual risk-free rate 
 SIGMA = 0.25 # Annual volatility -- on the high end, because typically more delta movement makes things more interesting 

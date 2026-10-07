@@ -1,7 +1,10 @@
 import numpy as np 
-from scipy.stats import norm
+import math 
+#from scipy.stats import norm
+from numba import njit 
 
 
+@njit(parallel=True)
 def option_price_mc(times, paths, T, K, r):
     """
     # Returns the Monte Carlo theoretical price of a European call option 
@@ -30,7 +33,7 @@ def option_price_mc(times, paths, T, K, r):
     return option_price
 
 
-
+@njit
 def option_price_bsm(S_0, K, T, r, sigma):
     """
     # Returns the theoretical price of a European call option under Black-Scholes-Merton
@@ -40,4 +43,8 @@ def option_price_bsm(S_0, K, T, r, sigma):
     d1 = (np.log(S_0/K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
 
-    return S_0 * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+    # compute normal cdfs 
+    Phi_d1 = 0.5 * (1.0 + math.erf(d1 / math.sqrt(2.0)))
+    Phi_d2 = 0.5 * (1.0 + math.erf(d2 / math.sqrt(2.0)))
+
+    return S_0 * Phi_d1 - K * np.exp(-r * T) * Phi_d2

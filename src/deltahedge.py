@@ -90,11 +90,13 @@ def delta_hedge_pnl(asset_price_process_array, S_0, C_0, K, r, sigma, no_of_call
 
 
 
-# This is a rewrite of delta_hedge_pnl but with torch operations 
-# and adapted to use the path masking that we design in LSTMmodel.simulate_process() (see deephedging.py) 
+# More general P&L calculator that can take arbitrary hedge process arrays.
+# This is adapted to use the path masking that we design in LSTMmodel.simulate_process() (see deephedging.py) 
+# which means that 
 # Unlike with delta_hedge_pnl, the LSTM model already resamples the simulation grid for us 
-# so we do not need to do any resampling. 
-def delta_hedge_pnl_torch(asset_price_process_array, hedge_process_array, path_mask_array, C_0_array, K, 
+# so we do not need to do any resampling usually. 
+# However where this is used elsewhere in the project, one should resample the array before passing it in. 
+def hedge_pnl_torch(asset_price_process_array, hedge_process_array, path_mask_array, C_0_array, K, 
                           r, no_of_calls, cost_rate, hedging_interval):
 
     N_PATHS, MAX_STEPS = hedge_process_array.shape

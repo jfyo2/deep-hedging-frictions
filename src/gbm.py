@@ -6,17 +6,18 @@ This file defines functions associated with geometric Brownian motion path simul
 
 
 import numpy as np 
+from numba import njit 
 
 # All random processes in this notebook must be fed with a random number 
 # generator 'RNG' which is of the form np.random.default_rng(s) for some seed s
 
-
+"""
 def brownianMotion(RNG, MAX_TIME=1, SAMPLES=100):
-    """
+
     # Generates a 1D standard Brownian motion with included time indices: outputs (t,B) 
     # where t is an array of time points and B is an array of the corresponding 
     # values of the Brownian motion at the time points in t
-    """
+
     if SAMPLES <= 1:
         raise ValueError("The number of samples must be an integer greater than or equal to 2.")
 
@@ -35,14 +36,12 @@ def brownianMotion(RNG, MAX_TIME=1, SAMPLES=100):
 
 
 
-
-
 def geometricBrownianMotion(RNG, S_0, mu, sigma, MAX_TIME=1, SAMPLES=100):
-    """
+
     # Monte Carlo simulation of geometric Brownian motion with 
     # initial value S_0, drift mu, diffusion constant sigma 
     # in the time interval [0, MAX_TIME] 
-    """
+
     # We use the analytic solution due to Ito: 
     # S_t = S_0 exp((\mu - \sigma^2/2) t + \sigma W_t)
 
@@ -53,12 +52,30 @@ def geometricBrownianMotion(RNG, S_0, mu, sigma, MAX_TIME=1, SAMPLES=100):
     GBM = S_0 * np.exp((mu - sigma**2 / 2) * t + sigma * B)
 
     return (t, GBM)
+"""
 
+@njit(parallel=True)
+def geometricBrownianMotion(rng, n_paths, S_0, mu, sigma, MAX_TIME=1, STEPS=100):
+    """
+    vectorized Monte Carlo simulation of geometric Brownian motion with 
+    initial value S_0, drift mu, diffusion constant sigma 
+    in the time interval [0, MAX_TIME]. Output: (t, S) where t is a vector of time
+    intervals at which we sample, and S is an array of n_paths discretized price processes.
+    """
+    t = np.linspace(0, MAX_TIME, STEPS + 1)
+    dt = MAX_TIME / STEPS
 
-def gbm_paths_vec(rng, n, S_0, mu, sigma, T, steps):
-    dt = T / steps
-    Z = rng.standard_normal((n, steps))
-    log_increments = (mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * Z
-    log_S = np.log(S_0) + np.concatenate(
-        [np.zeros((n, 1)), np.cumsum(log_increments, axis=1)], axis=1)
-    return np.exp(log_S)
+    # We use the analytic solution due to Ito: 
+    # S_t = S_0 exp((\mu - \sigma^2/2) t + \sigma W_t)
+    log_S = np.empty((n_paths, STEPS + 1))
+    log_S[:,0] = np.log(S_0)
+
+    dW = rng.standard_normal((n_paths, STEPS)) # Brownian motion jumps 
+
+    # It's convenient to do this in log
+    for j in range(1, STEPS + 1):
+        log_increments = (mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * dW[:,j-1]
+        log_S[:,j] = log_S[:, j-1] + log_increments
+
+    
+    return (t, np.exp(log_S)) 
